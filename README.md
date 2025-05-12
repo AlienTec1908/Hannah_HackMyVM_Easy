@@ -2,10 +2,10 @@
 
 ![Hannah.png](Hannah.png)
 
-**Datum des Berichts:** 2023-04-13
-**VM:** Hannah
-**Plattform:** HackMyVM ([Link zur VM](https://hackmyvm.eu/machines/machine.php?vm=Hannah))
-**Autor der VM:** DarkSpirit
+**Datum des Berichts:** 2023-04-13  
+**VM:** Hannah  
+**Plattform:** HackMyVM ([Link zur VM](https://hackmyvm.eu/machines/machine.php?vm=Hannah))  
+**Autor der VM:** DarkSpirit  
 **Original Writeup:** [https://alientec1908.github.io/Hannah_HackMyVM_Easy/](https://alientec1908.github.io/Hannah_HackMyVM_Easy/)
 
 ---
