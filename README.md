@@ -1,6 +1,6 @@
 # Hannah (HackMyVM) - Penetration Test Bericht
 
-![Hannah.png](Hannah.png)  
+![Hannah.png](Hannah.png)
 
 **Datum des Berichts:** 2023-04-13
 **VM:** Hannah
