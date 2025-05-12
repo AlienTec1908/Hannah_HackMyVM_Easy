@@ -1,6 +1,6 @@
 # Hannah (HackMyVM) - Penetration Test Bericht
 
-![Hannah.png](Hannah.png) <!-- Optional: Fügen Sie hier den Pfad zum Icon ein, wenn es im Repo vorhanden ist -->
+![Hannah.png](Hannah.png)  
 
 **Datum des Berichts:** 2023-04-13
 **VM:** Hannah
